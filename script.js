@@ -3,14 +3,14 @@ const D={
 "Volcanic Chambers":{"Insane":1203000000n,"Nightmare":1480000000n},
 "Aquatic Temple":{"Insane":3113000000n,"Nightmare":3857000000n},
 "Enchanted Forest":{"Insane":10536000000n,"Nightmare":14516000000n},
-"Northern Lands":{"Insane":36857000000n,"Nightmare":47244000000n,"Nightmare + Odin Reincarnation":73644000000n},
+"Northern Lands":{"Insane":21840000000n,"Nightmare":36600000000n,"Nightmare + Odin Reincarnation":73644000000n},
 "Gilded Skies":{"Insane":106176000000n,"Nightmare":133050000000n},
 "Yokai Peak":{"Insane":318600000000n,"Nightmare":435600000000n},
 "Abyssal Void":{"Insane":1070000000000n,"Nightmare":1470000000000n,"Nightmare + The Voidborn":1830000000000n}
 };
-const DEF={currentLevel:"200",currentExp:"101B",targetLevel:"205",dungeon:"Northern Lands",difficulty:"Nightmare",runTime:"3:53",vip:false,boost:false,customXpEnabled:true,customXp:"45.72B"};
+const DEF={currentLevel:"181",currentExp:"0",targetLevel:"200",dungeon:"Northern Lands",difficulty:"Nightmare",runTime:"3:53",vip:true,boost:false,customXpEnabled:false,customXp:"36.6B"};
 const U={"":1n,K:1000n,M:1000000n,B:1000000000n,T:1000000000000n,QA:1000000000000000n,QI:1000000000000000000n,SX:1000000000000000000000n};
-const $=id=>document.getElementById(id),KEY="dq-xp-calculator-v3";
+const $=id=>document.getElementById(id),KEY="dq-xp-calculator-v4";
 let tt,st;
 function pbi(b,e){b=BigInt(b);e=BigInt(e);let r=1n;while(e){if(e&1n)r*=b;b*=b;e>>=1n}return r}
 function lvl(l){const e=l-1,n=84n*pbi(113,e),d=pbi(100,e);return(n*2n+d)/(d*2n)}

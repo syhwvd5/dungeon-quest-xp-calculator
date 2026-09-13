@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0f0f10" />
-  <meta name="description" content="Roblox Dungeon Quest 레벨업 필요 XP, 필요한 던전 횟수, 예상 시간을 계산합니다." />
-  <title>Dungeon Quest XP Calculator</title>
+  <meta name="description" content="Roblox Dungeon Quest Reborn 레벨업 필요 XP, 필요한 던전 횟수, 예상 시간을 계산합니다." />
+  <title>Dungeon Quest Reborn XP Calculator</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,8 +21,8 @@
         </svg>
       </div>
       <div>
-        <h1>Dungeon Quest XP Calculator</h1>
-        <p>Original Roblox Dungeon Quest · Level / Runs / Time</p>
+        <h1>Dungeon Quest Reborn XP Calculator</h1>
+        <p>Dungeon Quest Reborn · Level / Runs / Time</p>
       </div>
     </div>
     <div class="top-actions">
@@ -47,17 +47,17 @@
       <div class="field-grid two">
         <label class="field">
           <span class="field-name">현재 레벨</span>
-          <div class="input-wrap"><span class="prefix">Lv.</span><input id="currentLevel" type="number" min="1" max="999" inputmode="numeric" value="200" /></div>
+          <div class="input-wrap"><span class="prefix">Lv.</span><input id="currentLevel" type="number" min="1" max="999" inputmode="numeric" value="181" /></div>
         </label>
         <label class="field">
           <span class="field-name">목표 레벨</span>
-          <div class="input-wrap"><span class="prefix">Lv.</span><input id="targetLevel" type="number" min="2" max="1000" inputmode="numeric" value="205" /></div>
+          <div class="input-wrap"><span class="prefix">Lv.</span><input id="targetLevel" type="number" min="2" max="1000" inputmode="numeric" value="200" /></div>
         </label>
       </div>
 
       <label class="field">
         <span class="field-name">현재 EXP <span class="optional">선택</span></span>
-        <div class="input-wrap"><input id="currentExp" type="text" value="101B" placeholder="예: 101B, 2.5T, 1200000" autocomplete="off" /></div>
+        <div class="input-wrap"><input id="currentExp" type="text" value="0" placeholder="예: 101B, 2.5T, 1200000" autocomplete="off" /></div>
         <span class="field-help" id="currentExpParsed">= 101,000,000,000 EXP</span>
       </label>
 
@@ -172,20 +172,20 @@
       </div>
       <div class="table-head"><span>구간</span><span>필요 EXP</span><span>예상 판수</span></div>
       <div class="level-list" id="levelList"></div>
-      <p class="data-note">레벨 요구 EXP는 커뮤니티 표의 약 13% 증가 규칙을 고정밀 정수 계산으로 재현합니다. 매우 큰 레벨에서는 게임 내 값과 미세한 반올림 차이가 생길 수 있습니다.</p>
+      <p class="data-note">레벨 요구 EXP는 Dungeon Bot 3.0의 표시값과 일치하는 약 13% 증가 곡선을 사용합니다. Northern Lands의 Insane/Nightmare는 공식 Discord 봇 결과에 맞춰 보정했습니다.</p>
     </section>
 
     <aside class="card info-card">
       <div class="info-icon" aria-hidden="true">i</div>
       <div>
         <h3>입력 팁</h3>
-        <p><b>101B</b>, <b>2.5T</b>, <b>1Qa</b>처럼 입력할 수 있습니다. 설정은 브라우저에 자동 저장되며, 공유 버튼으로 같은 설정의 URL을 만들 수 있습니다.</p>
+        <p><b>101B</b>, <b>2.5T</b>, <b>1Qa</b>처럼 입력할 수 있습니다. Northern Lands 프리셋은 Discord Dungeon Bot 3.0 결과에 맞춰 보정되어 있습니다. 다른 던전은 데이터가 확인될 때까지 직접 EXP/판 입력을 사용할 수 있습니다.</p>
       </div>
     </aside>
   </main>
 
   <footer>
-    <span>Unofficial Dungeon Quest calculator</span>
+    <span>Unofficial Dungeon Quest Reborn calculator</span>
     <span>·</span>
     <span>Game data may change after updates.</span>
   </footer>

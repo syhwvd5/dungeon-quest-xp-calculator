@@ -116,11 +116,29 @@
   function cumulativeGold(k){k=Math.max(0,Math.floor(k));if(k<=24)return CUM[k];if(k<=capStart)return CUM[24]+(k-24)*(110*k+195);return capRate*k-23829475}
   function goldRange(a,b){a=Math.max(0,Math.floor(a));b=Math.max(a,Math.floor(b));return cumulativeGold(b)-cumulativeGold(a)}
   function gearPot(start,up){let s=start;for(let i=0;i<up;i++)s+=Math.min(10,Math.floor(s/20));return s}
+  function parsePotInput(raw){
+    const s=String(raw??"").trim().replaceAll(",","").toLowerCase();
+    if(!s) return NaN;
+    const m=s.match(/^([0-9]+(?:\.[0-9]+)?)\s*(k|m|b|t|qa|qi)?$/i);
+    if(!m) return NaN;
+    const mult={k:1e3,m:1e6,b:1e9,t:1e12,qa:1e15,qi:1e18}[m[2]?.toLowerCase()]||1;
+    return Number(m[1])*mult;
+  }
   function calcPot(){
-    const start=Math.max(0,Math.floor(+$p("potCurrent").value||0));
+    const parsedStart=parsePotInput($p("potCurrent").value);
+    const start=Number.isFinite(parsedStart)?Math.max(0,Math.floor(parsedStart)):NaN;
     const done=Math.max(0,Math.floor(+$p("potDone").value||0));
     const total=Math.max(0,Math.floor(+$p("potTotal").value||0));
     const left=Math.max(0,total-done);
+    const parsedEcho=$p("potCurrentParsed");
+    if(!Number.isFinite(start)){
+      $p("potCurrent").style.borderColor="var(--accent)";
+      if(parsedEcho) parsedEcho.textContent="형식을 확인하세요. 예: 5.48m 또는 5480000";
+      $p("potMax").textContent="입력 확인";
+      return;
+    }
+    $p("potCurrent").style.borderColor="";
+    if(parsedEcho) parsedEcho.textContent="= "+start.toLocaleString();
     const result=potMode==="gear"?gearPot(start,left):start+left*10;
     $p("potMax").textContent=result.toLocaleString();
     const gold=goldRange(done,total);

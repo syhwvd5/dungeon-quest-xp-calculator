@@ -329,18 +329,3 @@ footer { position: relative; z-index: 1; width: min(1180px, calc(100% - 32px)); 
   .field-grid.three,.field-grid.four,.mini-stats.three{grid-template-columns:1fr}
   .tool-result{font-size:22px}
 }
-
-
-/* Pot OCR review */
-.scan-review{margin-top:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#141416}
-.scan-review-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-.scan-review-head strong{display:block;margin-top:5px;font-size:13px}
-.scan-warning{font-size:9px;color:#d98a7d;text-align:right}
-.scan-stat-grid{display:grid;gap:8px}
-.scan-stat-row{display:grid;grid-template-columns:18px 88px 1fr;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--line-soft);border-radius:9px;background:#18181a}
-.scan-stat-row>span{font-size:10px;font-weight:800;color:#aaa9ad}
-.scan-stat-row>input[type="text"]{width:100%;min-width:0;border:1px solid #303035;background:#111113;color:var(--text);border-radius:7px;padding:8px 9px;font:inherit}
-.scan-stat-row>input[type="radio"]{accent-color:#d36b5d}
-.scan-upgrade-grid{margin-top:12px}
-.scan-actions{display:flex;gap:8px;margin-top:12px}
-@media(max-width:560px){.scan-review-head{display:block}.scan-warning{display:block;text-align:left;margin-top:6px}.scan-stat-row{grid-template-columns:18px 72px 1fr}.scan-actions{flex-direction:column}}

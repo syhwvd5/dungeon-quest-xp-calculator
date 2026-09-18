@@ -241,7 +241,7 @@
           <button data-potmode="dungeon">PI → Current</button>
         </div>
         <div class="field-grid three">
-          <label class="field"><span class="field-name">현재 Pot</span><div class="input-wrap"><input id="potCurrent" type="number" min="0" value="1"></div></label>
+          <label class="field"><span class="field-name">현재 Pot</span><div class="input-wrap"><input id="potCurrent" type="text" inputmode="text" value="1" placeholder="예: 5.48m 또는 5480000" autocomplete="off"></div><span class="field-help" id="potCurrentParsed">= 1</span></label>
           <label class="field"><span class="field-name">이미 업그레이드</span><div class="input-wrap"><input id="potDone" type="number" min="0" value="0"></div></label>
           <label class="field"><span class="field-name">총 업그레이드</span><div class="input-wrap"><input id="potTotal" type="number" min="0" value="0"></div></label>
         </div>
@@ -345,6 +345,6 @@
 
   <script src="script.js?v=20260919-2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="planner.js?v=20260919-3"></script>
+  <script src="planner.js?v=20260919-4"></script>
 </body>
 </html>

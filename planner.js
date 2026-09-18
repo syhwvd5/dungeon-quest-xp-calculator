@@ -292,11 +292,30 @@
     return (Number(confB)||0)>(Number(confA)||0)?b:a;
   }
   function parseUpgradePair(text){
-    const m=String(text||"").match(/Upgrades?\s*[:\-]?\s*([0-9O,]+)\s*\/\s*([0-9O,]+)/i);
-    if(!m) return null;
-    const done=m[1].replace(/[O,]/gi,x=>x.toUpperCase()==="O"?"0":"");
-    const total=m[2].replace(/[O,]/gi,x=>x.toUpperCase()==="O"?"0":"");
-    return /^\d+$/.test(done)&&/^\d+$/.test(total)?{done,total}:null;
+    const clean=String(text||"").replace(/\r/g,"");
+    const normalize=s=>String(s||"").replace(/[O,]/gi,x=>x.toUpperCase()==="O"?"0":"");
+    const valid=(done,total)=>{
+      if(!/^\d+$/.test(done)||!/^\d+$/.test(total)) return null;
+      const d=Number(done), t=Number(total);
+      if(!Number.isFinite(d)||!Number.isFinite(t)||d<0||t<0||d>t) return null;
+      return {done:String(Math.trunc(d)),total:String(Math.trunc(t))};
+    };
+
+    // First try a label-aware match. OCR often inserts line breaks/spaces.
+    let m=clean.match(/Upg[a-z0-9]*\s*[:\-]?\s*([0-9O,]+)\s*[\/|]\\?\s*([0-9O,]+)/i);
+    if(m){
+      const hit=valid(normalize(m[1]),normalize(m[2]));
+      if(hit) return hit;
+    }
+
+    // Fallback: item cards normally contain only one current/total fraction.
+    // This recovers cases where "Upgrades" itself was OCR'd incorrectly.
+    const pairs=[...clean.matchAll(/([0-9O,]{1,12})\s*[\/|]\\?\s*([0-9O,]{1,12})/gi)];
+    for(const p of pairs){
+      const hit=valid(normalize(p[1]),normalize(p[2]));
+      if(hit) return hit;
+    }
+    return null;
   }
   function chooseUpgradePair(a,b,confA,confB){
     if(!a) return b;

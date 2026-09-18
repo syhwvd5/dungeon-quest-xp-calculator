@@ -146,24 +146,62 @@
   calcPot();
 
   // Screenshot OCR
+  // DQR class-aware main-stat mapping:
+  // Warrior -> Physical Power, Mage -> Spell Power, Guardian -> Health.
+  function parseCardAmount(raw){
+    if(!raw) return NaN;
+    const m=String(raw).trim().replaceAll(",","").match(/([0-9]+(?:\.[0-9]+)?)\s*([kKmMbBtT])?/);
+    if(!m) return NaN;
+    const mult={k:1e3,m:1e6,b:1e9,t:1e12}[(m[2]||"").toLowerCase()]||1;
+    return Number(m[1])*mult;
+  }
+  function readCardStat(text,labelPattern){
+    // Capture the first displayed value after the label. Values inside parentheses
+    // are the max/secondary display and are intentionally not used as current pot.
+    const rx=new RegExp(labelPattern+"\\s*[:\\-]?\\s*([0-9]+(?:\\.[0-9]+)?\\s*[kKmMbBtT]?)","i");
+    const m=text.match(rx);
+    return m ? { raw:m[1].replace(/\s+/g,""), value:parseCardAmount(m[1]) } : null;
+  }
   $p("potScanFile")?.addEventListener("change", async e => {
     const file=e.target.files?.[0]; if(!file)return;
     const status=$p("potScanStatus");
     if(!window.Tesseract){status.textContent="OCR 라이브러리를 불러오지 못했습니다.";return}
-    status.textContent="이미지에서 숫자를 읽는 중…";
+    status.textContent="아이템 직업과 스탯을 읽는 중…";
     try{
       const r=await Tesseract.recognize(file,"eng",{logger:m=>{if(m.status==="recognizing text")status.textContent="OCR "+Math.round((m.progress||0)*100)+"%";}});
-      const text=r.data.text||"";
+      const text=(r.data.text||"").replace(/\r/g,"");
       const upgrades=text.match(/Upgrades?\s*[:\-]?\s*(\d+)\s*\/\s*(\d+)/i);
-      const physical=text.match(/Physical(?:\s+power)?\s*[:\-]?\s*([\d,]+)/i);
-      const spell=text.match(/Spell(?:\s+Power)?\s*[:\-]?\s*([\d,]+)/i);
-      const health=text.match(/Health\s*[:\-]?\s*([\d,]+)/i);
       if(upgrades){$p("potDone").value=upgrades[1];$p("potTotal").value=upgrades[2]}
-      const vals=[physical,spell,health].filter(Boolean).map(m=>Number(m[1].replaceAll(",",""))).filter(Number.isFinite);
-      if(vals.length)$p("potCurrent").value=Math.max(...vals);
-      calcPot();
-      status.textContent=upgrades||vals.length?"인식 완료. 값이 맞는지 확인하세요.":"숫자를 찾지 못했습니다. 직접 입력하세요.";
-    }catch(err){status.textContent="OCR 실패. 직접 입력하세요."}
+
+      const stats={
+        physical:readCardStat(text,"Physical(?:\\s+power)?"),
+        spell:readCardStat(text,"Spell(?:\\s+Power)?"),
+        health:readCardStat(text,"Health")
+      };
+
+      let role=null, statKey=null, statLabel=null;
+      if(/\bWarrior\b/i.test(text)){role="Warrior";statKey="physical";statLabel="Physical Power";}
+      else if(/\bMage\b/i.test(text)){role="Mage";statKey="spell";statLabel="Spell Power";}
+      else if(/\bGuardian\b/i.test(text)){role="Guardian";statKey="health";statLabel="Health";}
+
+      const chosen=statKey ? stats[statKey] : null;
+      if(chosen && Number.isFinite(chosen.value)){
+        $p("potCurrent").value=Math.round(chosen.value);
+        calcPot();
+        const upText=upgrades ? ` · Upgrades ${upgrades[1]}/${upgrades[2]}` : "";
+        status.textContent=`${role} 감지 → ${statLabel} ${chosen.raw} 사용${upText}. 값이 맞는지 확인하세요.`;
+      }else if(role){
+        calcPot();
+        status.textContent=`${role}는 감지했지만 ${statLabel} 값을 읽지 못했습니다. 현재 Pot만 직접 입력하세요.`;
+      }else{
+        calcPot();
+        status.textContent=upgrades
+          ? `직업을 감지하지 못했습니다. Upgrades ${upgrades[1]}/${upgrades[2]}만 입력했습니다.`
+          : "Warrior / Mage / Guardian 또는 스탯 숫자를 감지하지 못했습니다. 직접 입력하세요.";
+      }
+    }catch(err){
+      status.textContent="OCR 실패. 직접 입력하세요.";
+    }
   });
 
   // Damage calculator data

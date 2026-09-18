@@ -357,15 +357,16 @@
     if(a.done===b.done&&a.total===b.total) return a;
     return (Number(confB)||0)>(Number(confA)||0)?b:a;
   }
-  function makeUpgradeCanvas(source,{top=.54,bottom=.90,threshold=false}={}){
+  function makeUpgradeCanvas(source,{top=.54,bottom=.90,left=0,right=1,threshold=false,scale=5}={}){
     const sw=source.width||source.naturalWidth,sh=source.height||source.naturalHeight;
+    const sx=Math.floor(sw*left),ex=Math.min(sw,Math.ceil(sw*right));
     const sy=Math.floor(sh*top),ey=Math.min(sh,Math.ceil(sh*bottom));
-    const cropH=Math.max(1,ey-sy),scale=5;
+    const cropW=Math.max(1,ex-sx),cropH=Math.max(1,ey-sy);
     const canvas=document.createElement("canvas");
-    canvas.width=sw*scale;canvas.height=cropH*scale;
+    canvas.width=cropW*scale;canvas.height=cropH*scale;
     const ctx=canvas.getContext("2d",{willReadFrequently:true});
     ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
-    ctx.drawImage(source,0,sy,sw,cropH,0,0,canvas.width,canvas.height);
+    ctx.drawImage(source,sx,sy,cropW,cropH,0,0,canvas.width,canvas.height);
     const img=ctx.getImageData(0,0,canvas.width,canvas.height),data=img.data;
     let min=255,max=0;
     for(let i=0;i<data.length;i+=4){
@@ -460,33 +461,51 @@
       }
 
       const grayUp=parseUpgradePair(grayText),colorUp=parseUpgradePair(colorText);
-      if(!upgrades || !grayUp || !colorUp || grayUp.done!==colorUp.done || grayUp.total!==colorUp.total){
+      const suspiciousUpgrade=upgrades&&upgrades.total.length-upgrades.done.length>=2;
+      if(!upgrades || !grayUp || !colorUp || grayUp.done!==colorUp.done || grayUp.total!==colorUp.total || suspiciousUpgrade){
         status.textContent="업그레이드 수를 다시 확인하는 중…";
 
         const upResultA=await Tesseract.recognize(
-          makeUpgradeCanvas(source,{top:.50,bottom:.86,threshold:false}),"eng",{
+          makeUpgradeCanvas(source,{top:.50,bottom:.88,left:0,right:1,threshold:false,scale:5}),"eng",{
             logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 OCR 1차 "+Math.round((m.progress||0)*100)+"%";}
           }
         );
         const upA=parseUpgradePair((upResultA.data.text||"").replace(/\r/g,""));
 
+        // The numeric pair sits on the right half of DQR item cards.
+        // Cropping away "Upgrades:" prevents the large blue label from stealing characters.
         const upResultB=await Tesseract.recognize(
-          makeUpgradeCanvas(source,{top:.62,bottom:.92,threshold:true}),"eng",{
-            logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 OCR 2차 "+Math.round((m.progress||0)*100)+"%";}
+          makeUpgradeCanvas(source,{top:.66,bottom:.88,left:.43,right:.995,threshold:false,scale:7}),"eng",{
+            logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 숫자 OCR 1차 "+Math.round((m.progress||0)*100)+"%";}
           }
         );
         const upB=parseUpgradePair((upResultB.data.text||"").replace(/\r/g,""));
 
-        const candidates=[grayUp,colorUp,upA,upB].filter(Boolean);
-        if(candidates.length){
-          const counts=new Map();
-          for(const c of candidates){
-            const k=c.done+"/"+c.total;
-            counts.set(k,(counts.get(k)||0)+1);
+        const upResultC=await Tesseract.recognize(
+          makeUpgradeCanvas(source,{top:.66,bottom:.88,left:.43,right:.995,threshold:true,scale:7}),"eng",{
+            logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 숫자 OCR 2차 "+Math.round((m.progress||0)*100)+"%";}
           }
-          candidates.sort((a,b)=>(counts.get(b.done+"/"+b.total)||0)-(counts.get(a.done+"/"+a.total)||0));
-          const best=candidates[0];
-          if(upgrades&&(upgrades.done!==best.done||upgrades.total!==best.total)) warnings.push("Upgrades 값 불일치");
+        );
+        const upC=parseUpgradePair((upResultC.data.text||"").replace(/\r/g,""));
+
+        let best=null;
+        if(upB&&upC&&upB.done===upC.done&&upB.total===upC.total){
+          best=upB;
+        }else{
+          const candidates=[grayUp,colorUp,upA,upB,upC].filter(Boolean);
+          if(candidates.length){
+            const counts=new Map();
+            for(const c of candidates){
+              const k=c.done+"/"+c.total;
+              counts.set(k,(counts.get(k)||0)+1);
+            }
+            candidates.sort((a,b)=>(counts.get(b.done+"/"+b.total)||0)-(counts.get(a.done+"/"+a.total)||0));
+            best=candidates[0];
+          }
+        }
+
+        if(best){
+          if(upgrades&&(upgrades.done!==best.done||upgrades.total!==best.total)) warnings.push("Upgrades 값 재보정");
           upgrades=best;
         }else{
           warnings.push("Upgrades 미감지");

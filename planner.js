@@ -323,10 +323,33 @@
     if(a.done===b.done&&a.total===b.total) return a;
     return (Number(confB)||0)>(Number(confA)||0)?b:a;
   }
+  function potReviewInput(key){
+    return $p("potReview"+key[0].toUpperCase()+key.slice(1));
+  }
+  function clearPotReview(){
+    const box=$p("potStatReview");
+    if(box)box.hidden=true;
+    ["physical","spell","health"].forEach(key=>{const el=potReviewInput(key);if(el)el.value=""});
+    document.querySelectorAll('input[name="potReviewStat"]').forEach(r=>r.checked=false);
+    if($p("potStatReviewHint"))$p("potStatReviewHint").textContent="";
+  }
+  function showPotReview(stats,selectedKey,title,hint=""){
+    const box=$p("potStatReview");
+    if(!box)return;
+    box.hidden=false;
+    for(const key of ["physical","spell","health"]){
+      potReviewInput(key).value=stats[key]?.raw||"";
+    }
+    document.querySelectorAll('input[name="potReviewStat"]').forEach(r=>r.checked=r.value===selectedKey);
+    $p("potStatReviewTitle").textContent=title;
+    $p("potStatReviewHint").textContent=hint;
+  }
+
   async function processPotScanFile(file){
     if(!file)return;
     const status=$p("potScanStatus");
     if(!window.Tesseract){status.textContent="OCR 라이브러리를 불러오지 못했습니다.";return}
+    clearPotReview();
     status.textContent="아이템 제목을 읽는 중…";
     try{
       const source=await loadImageSource(file);
@@ -365,47 +388,37 @@
         $p("potTotal").value=upgrades.total;
       }
 
-      if(roleInfo){
-        const chosen=chooseOcrStat(
-          extractRoleStat(grayText,roleInfo.key),
-          extractRoleStat(colorText,roleInfo.key),
-          confGray,confColor
-        );
-        if(chosen&&Number.isFinite(chosen.value)){
-          $p("potCurrent").value=chosen.raw;
-          calcPot();
-          const upText=upgrades?` · Upgrades ${$p("potDone").value}/${$p("potTotal").value}`:"";
-          status.textContent=`${roleInfo.role} 감지 → ${roleInfo.label} ${chosen.raw} 사용${upText}. 값이 맞는지 확인하세요.`;
-        }else{
-          calcPot();
-          status.textContent=`${roleInfo.role}는 감지했지만 ${roleInfo.label} 숫자를 읽지 못했습니다. 현재 Pot만 직접 입력하세요.`;
-        }
-      }else{
-        // Weapons often have no Warrior/Mage/Guardian word in the title.
-        // In that case, read all three current stats and choose the largest one.
-        const candidates=[
-          {key:"physical",label:"Physical Power",stat:chooseOcrStat(extractRoleStat(grayText,"physical"),extractRoleStat(colorText,"physical"),confGray,confColor)},
-          {key:"spell",label:"Spell Power",stat:chooseOcrStat(extractRoleStat(grayText,"spell"),extractRoleStat(colorText,"spell"),confGray,confColor)},
-          {key:"health",label:"Health",stat:chooseOcrStat(extractRoleStat(grayText,"health"),extractRoleStat(colorText,"health"),confGray,confColor)}
-        ].filter(x=>x.stat&&Number.isFinite(x.stat.value));
+      const stats={
+        physical:chooseOcrStat(extractRoleStat(grayText,"physical"),extractRoleStat(colorText,"physical"),confGray,confColor),
+        spell:chooseOcrStat(extractRoleStat(grayText,"spell"),extractRoleStat(colorText,"spell"),confGray,confColor),
+        health:chooseOcrStat(extractRoleStat(grayText,"health"),extractRoleStat(colorText,"health"),confGray,confColor)
+      };
 
+      let selectedKey=null,reviewTitle="";
+      if(roleInfo&&stats[roleInfo.key]){
+        selectedKey=roleInfo.key;
+        reviewTitle=roleInfo.role+" 감지 → "+roleInfo.label+" 선택";
+      }else{
+        const candidates=Object.entries(stats).filter(([,v])=>v&&Number.isFinite(v.value));
         if(candidates.length){
-          candidates.sort((a,b)=>b.stat.value-a.stat.value);
-          const chosen=candidates[0];
-          $p("potCurrent").value=chosen.stat.raw;
-          calcPot();
-          const details=candidates
-            .map(x=>`${x.label} ${x.stat.raw}`)
-            .join(" · ");
-          const upText=upgrades?` · Upgrades ${$p("potDone").value}/${$p("potTotal").value}`:"";
-          status.textContent=`직업명 없음 → 가장 큰 현재 스탯 ${chosen.label} ${chosen.stat.raw} 사용 · ${details}${upText}. 값이 맞는지 확인하세요.`;
+          candidates.sort((a,b)=>b[1].value-a[1].value);
+          selectedKey=candidates[0][0];
+          reviewTitle="직업명 없음 → 가장 큰 현재 스탯 자동 선택";
         }else{
-          calcPot();
-          const seen=titleText? `제목 OCR: "${titleText.slice(0,70)}"` : "제목 OCR 결과 없음";
-          status.textContent=upgrades
-            ? `직업/스탯 감지 실패 · ${seen} · Upgrades만 입력했습니다.`
-            : `직업/스탯 감지 실패 · ${seen}. 직접 입력하세요.`;
+          reviewTitle=roleInfo ? roleInfo.role+" 감지 · 주 스탯 숫자 미감지" : "직업/스탯 미감지";
         }
+      }
+
+      if(Object.values(stats).some(Boolean)){
+        const upText=upgrades?`Upgrades ${$p("potDone").value}/${$p("potTotal").value} 자동 입력`:"Upgrades 미감지";
+        showPotReview(stats,selectedKey,reviewTitle,upText);
+        status.textContent="OCR 완료. 현재 Pot 인식값을 확인한 뒤 적용하세요.";
+      }else{
+        clearPotReview();
+        const seen=titleText? `제목 OCR: "${titleText.slice(0,70)}"` : "제목 OCR 결과 없음";
+        status.textContent=upgrades
+          ? `Current Pot 스탯 감지 실패 · ${seen} · Upgrades만 입력했습니다.`
+          : `직업/스탯 감지 실패 · ${seen}. 직접 입력하세요.`;
       }
       if(source&&typeof source.close==="function") source.close();
     }catch(err){
@@ -432,6 +445,24 @@
     const status=$p("potScanStatus");
     if(status) status.textContent="붙여넣은 이미지를 읽는 중…";
     processPotScanFile(file);
+  });
+
+  $p("potReviewApply")?.addEventListener("click",()=>{
+    const key=document.querySelector('input[name="potReviewStat"]:checked')?.value;
+    const input=key?potReviewInput(key):null;
+    const value=input?parseCardAmount(input.value):NaN;
+    if(!key||!Number.isFinite(value)){
+      $p("potScanStatus").textContent="사용할 스탯을 선택하고 숫자를 확인하세요.";
+      input?.focus();
+      return;
+    }
+    $p("potCurrent").value=input.value.trim();
+    calcPot();
+    $p("potScanStatus").textContent="검토한 값을 현재 Pot에 적용했습니다.";
+  });
+  $p("potReviewClear")?.addEventListener("click",()=>{
+    clearPotReview();
+    $p("potScanStatus").textContent="Current Pot 검토 결과를 지웠습니다.";
   });
 
   // Damage calculator data

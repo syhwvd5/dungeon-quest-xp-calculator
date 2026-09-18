@@ -259,7 +259,7 @@
       <section class="card tool-card wide">
         <div class="section-heading"><div><span class="kicker">SCREENSHOT</span><h2>아이템 카드 읽기</h2></div><span class="beta">OPTIONAL</span></div>
         <p class="data-note">작은 아이템 카드도 제목 영역과 스탯 영역을 따로 확대해 읽습니다. Warrior는 Physical, Mage는 Spell, Guardian은 Health를 자동 선택합니다.</p>
-        <label class="upload-box" for="potScanFile"><input id="potScanFile" type="file" accept="image/*" hidden><span>이미지 선택</span><small>Warrior → Physical · Mage → Spell · Guardian → Health · Upgrades 자동 인식</small></label>
+        <label class="upload-box" for="potScanFile"><input id="potScanFile" type="file" accept="image/*" hidden><span>이미지 선택</span><small>Warrior → Physical · Mage → Spell · Guardian → Health · 직업명 없으면 가장 큰 스탯 자동 선택</small></label>
         <div class="scan-status" id="potScanStatus"></div>
       </section>
     </div>
@@ -345,6 +345,6 @@
 
   <script src="script.js?v=20260919-2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="planner.js?v=20260919-5"></script>
+  <script src="planner.js?v=20260919-6"></script>
 </body>
 </html>

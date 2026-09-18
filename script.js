@@ -1,13 +1,24 @@
 "use strict";
 const D={
-"Volcanic Chambers":{"Insane":1203000000n,"Nightmare":1480000000n},
-"Aquatic Temple":{"Insane":3113000000n,"Nightmare":3857000000n},
-"Enchanted Forest":{"Insane":10536000000n,"Nightmare":14516000000n},
-"Northern Lands":{"Insane":21840000000n,"Nightmare":36600000000n,"Nightmare + Odin Reincarnation":73644000000n},
-"Gilded Skies":{"Insane":106176000000n,"Nightmare":133050000000n},
-"Yokai Peak":{"Insane":318600000000n,"Nightmare":435600000000n},
-"Abyssal Void":{"Insane":1070000000000n,"Nightmare":1470000000000n,"Nightmare + The Voidborn":1830000000000n}
-};
+"Desert Temple":{"Easy":253n,"Medium":396n,"Hard":785n,"Insane":1307n,"Nightmare":2669n},
+"Winter Outpost":{"Easy":8340n,"Medium":11300n,"Hard":16140n,"Insane":27840n,"Nightmare":46180n},
+"Pirate Island":{"Insane":51150n,"Nightmare":84910n},
+"King's Castle":{"Insane":135900n,"Nightmare":271800n},
+"The Underworld":{"Insane":546000n,"Nightmare":924000n},
+"Samurai Palace":{"Insane":1724000n,"Nightmare":2280000n},
+"The Canals":{"Insane":4594000n,"Nightmare":8005000n},
+"Ghastly Harbor":{"Insane":12840000n,"Nightmare":24160000n},
+"Steampunk Sewers":{"Insane":35700000n,"Nightmare":59600000n},
+"Boss Raid (Lvl 130)":{"Tier 30":130000000n},
+"Orbital Outpost":{"Insane":222000000n,"Nightmare":320000000n},
+"Volcanic Chambers":{"Insane":750000000n,"Nightmare":1229000000n},
+"Aquatic Temple":{"Insane":2036000000n,"Nightmare":3564000000n},
+"Enchanted Forest":{"Insane":6900000000n,"Nightmare":11280000000n},
+"Northern Lands":{"Insane":21840000000n,"Nightmare":36600000000n,"Nightmare + Rodin":60100000000n},
+"Gilded Skies":{"Insane":63500000000n,"Nightmare":115500000000n},
+"Yokai Peak":{"Insane":192650000000n,"Nightmare":350950000000n},
+"Abyssal Void":{"Insane":1070000000000n,"Nightmare":1470000000000n}
+}
 const DEF={currentLevel:"181",currentExp:"0",targetLevel:"200",dungeon:"Northern Lands",difficulty:"Nightmare",runTime:"3:53",vip:true,boost:false,customXpEnabled:false,customXp:"36.6B"};
 const U={"":1n,K:1000n,M:1000000n,B:1000000000n,T:1000000000000n,QA:1000000000000000n,QI:1000000000000000000n,SX:1000000000000000000000n};
 const $=id=>document.getElementById(id),KEY="dq-xp-calculator-v4";

@@ -34,7 +34,16 @@
     </div>
   </header>
 
-  <main class="app-shell">
+  <nav class="planner-nav" aria-label="DQR tools">
+    <button class="planner-tab active" data-view="runs">Runs</button>
+    <button class="planner-tab" data-view="pots">Pots</button>
+    <button class="planner-tab" data-view="damage">Damage</button>
+    <button class="planner-tab" data-view="expdb">Dungeon EXP</button>
+    <button class="planner-tab" data-view="prices">Gamepasses</button>
+    <button class="planner-tab" data-view="about">About</button>
+  </nav>
+
+  <main class="app-shell planner-view active" id="view-runs">
     <section class="card input-card">
       <div class="section-heading">
         <div>
@@ -89,8 +98,32 @@
         <label class="toggle-card">
           <input id="boost" type="checkbox" />
           <span class="switch"><span></span></span>
-          <span class="toggle-copy"><strong>2x EXP Boost</strong><small>EXP +100%</small></span>
+          <span class="toggle-copy"><strong>EXP Boost</strong><small>EXP +100%</small></span>
           <span class="pill">+1.00x</span>
+        </label>
+        <label class="toggle-card">
+          <input id="solo" type="checkbox" />
+          <span class="switch"><span></span></span>
+          <span class="toggle-copy"><strong>Solo</strong><small>EXP +10%</small></span>
+          <span class="pill">+0.10x</span>
+        </label>
+        <label class="toggle-card">
+          <input id="hc" type="checkbox" />
+          <span class="switch"><span></span></span>
+          <span class="toggle-copy"><strong>Hardcore</strong><small>EXP +10%</small></span>
+          <span class="pill">+0.10x</span>
+        </label>
+        <label class="toggle-card">
+          <input id="event2" type="checkbox" />
+          <span class="switch"><span></span></span>
+          <span class="toggle-copy"><strong>2x EXP Event</strong><small>EXP +100%</small></span>
+          <span class="pill">+1.00x</span>
+        </label>
+        <label class="toggle-card">
+          <input id="event15" type="checkbox" />
+          <span class="switch"><span></span></span>
+          <span class="toggle-copy"><strong>1.5x EXP Event</strong><small>EXP +50%</small></span>
+          <span class="pill">+0.50x</span>
         </label>
       </div>
 
@@ -151,7 +184,10 @@
           <div class="detail-heading"><span>배율 구성</span><span id="totalMultiplierSide">1.00x</span></div>
           <div class="detail-row"><span>기본</span><strong>1.00x</strong></div>
           <div class="detail-row"><span>VIP Game Pass</span><strong id="vipPart">+0.00x</strong></div>
-          <div class="detail-row"><span>2x EXP Boost</span><strong id="boostPart">+0.00x</strong></div>
+          <div class="detail-row"><span>EXP Boost</span><strong id="boostPart">+0.00x</strong></div>
+          <div class="detail-row"><span>Solo</span><strong id="soloPart">+0.00x</strong></div>
+          <div class="detail-row"><span>Hardcore</span><strong id="hcPart">+0.00x</strong></div>
+          <div class="detail-row"><span>EXP Event</span><strong id="eventPart">+0.00x</strong></div>
         </div>
         <div class="detail-panel efficiency-panel">
           <div class="detail-heading"><span>파밍 효율</span><span>PER HOUR</span></div>
@@ -184,6 +220,115 @@
     </aside>
   </main>
 
+
+  <main class="planner-page planner-view" id="view-pots" hidden>
+    <section class="tool-hero">
+      <span class="kicker accent">DQR PLANNER</span>
+      <h2>Pot & upgrade calculator</h2>
+      <p>현재 pot과 업그레이드 진행도를 입력하면 최대 pot과 필요한 골드를 계산합니다.</p>
+    </section>
+    <div class="tool-grid">
+      <section class="card tool-card">
+        <div class="section-heading"><div><span class="kicker">POT</span><h2>최대 Pot</h2></div><strong class="tool-result" id="potMax">—</strong></div>
+        <div class="segment" id="potMode">
+          <button data-potmode="gear" class="active">DT → WO</button>
+          <button data-potmode="dungeon">PI → Current</button>
+        </div>
+        <div class="field-grid three">
+          <label class="field"><span class="field-name">현재 Pot</span><div class="input-wrap"><input id="potCurrent" type="number" min="0" value="1"></div></label>
+          <label class="field"><span class="field-name">이미 업그레이드</span><div class="input-wrap"><input id="potDone" type="number" min="0" value="0"></div></label>
+          <label class="field"><span class="field-name">총 업그레이드</span><div class="input-wrap"><input id="potTotal" type="number" min="0" value="0"></div></label>
+        </div>
+        <div class="progress-track"><span id="potProgress"></span></div>
+        <div class="progress-caption"><span id="potProgressText">0 / 0</span><span id="potFormula">—</span></div>
+      </section>
+      <section class="card tool-card">
+        <div class="section-heading"><div><span class="kicker">UPGRADE GOLD</span><h2>필요 골드</h2></div><strong class="tool-result" id="goldNeeded">—</strong></div>
+        <div class="mini-stats">
+          <div><span>다음 업그레이드</span><strong id="goldNext">—</strong></div>
+          <div><span>남은 업그레이드</span><strong id="upgradesLeft">—</strong></div>
+        </div>
+        <p class="data-note" id="goldFormulaText">초반 고정 테이블 → 24~465 선형 증가 → 466+ 업그레이드당 100,000 골드.</p>
+      </section>
+      <section class="card tool-card wide">
+        <div class="section-heading"><div><span class="kicker">SCREENSHOT</span><h2>아이템 카드 읽기</h2></div><span class="beta">OPTIONAL</span></div>
+        <p class="data-note">스크린샷 OCR은 브라우저에서만 실행됩니다. 인식이 틀리면 위 입력값을 직접 수정하세요.</p>
+        <label class="upload-box" for="potScanFile"><input id="potScanFile" type="file" accept="image/*" hidden><span>이미지 선택</span><small>Physical / Spell / Health / Upgrades 숫자 추출</small></label>
+        <div class="scan-status" id="potScanStatus"></div>
+      </section>
+    </div>
+  </main>
+
+  <main class="planner-page planner-view" id="view-damage" hidden>
+    <section class="tool-hero">
+      <span class="kicker accent">DAMAGE</span>
+      <h2>Damage calculator</h2>
+      <p>장비 pot, 스킬 포인트, 스킬 배율과 Inner 배율로 예상 대미지를 계산합니다.</p>
+    </section>
+    <div class="tool-grid">
+      <section class="card tool-card wide">
+        <div class="section-heading"><div><span class="kicker">FINAL DAMAGE</span><h2 id="damageCompact">—</h2></div><strong class="tool-result" id="damageExact">—</strong></div>
+        <div class="field-grid four">
+          <label class="field"><span class="field-name">Weapon pot</span><div class="input-wrap"><input id="dmgWeapon" type="number" min="0" value="73279273"></div></label>
+          <label class="field"><span class="field-name">Armor pot</span><div class="input-wrap"><input id="dmgArmor" type="number" min="0" value="6945538"></div></label>
+          <label class="field"><span class="field-name">Helmet pot</span><div class="input-wrap"><input id="dmgHelmet" type="number" min="0" value="7131930"></div></label>
+          <label class="field"><span class="field-name">Skill points</span><div class="input-wrap"><input id="dmgSkill" type="number" min="0" value="199"></div></label>
+        </div>
+        <div class="field-grid three">
+          <label class="field"><span class="field-name">Dungeon</span><div class="select-wrap"><select id="dmgDungeon"></select></div></label>
+          <label class="field"><span class="field-name">Skill / Spell</span><div class="select-wrap"><select id="dmgSpell"></select></div></label>
+          <label class="field"><span class="field-name">Inner</span><div class="select-wrap"><select id="dmgInner"><option value="1">None · 1.00x</option><option value="1.8">With Inner · 1.80x</option><option value="1.9" selected>Enhanced Inner · 1.90x</option></select></div></label>
+        </div>
+        <div class="mini-stats three">
+          <div><span>Base damage</span><strong id="dmgBase">—</strong></div>
+          <div><span>Spell multiplier</span><strong id="dmgMult">—</strong></div>
+          <div><span>Inner multiplier</span><strong id="dmgInnerEcho">—</strong></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <main class="planner-page planner-view" id="view-expdb" hidden>
+    <section class="tool-hero"><span class="kicker accent">DATABASE</span><h2>Dungeon EXP</h2><p>던전별 기본 EXP를 검색하고 난이도별로 비교할 수 있습니다.</p></section>
+    <section class="card table-card">
+      <div class="table-toolbar"><div class="input-wrap search-wrap"><input id="expSearch" type="search" placeholder="던전 검색"></div><span id="expCount"></span></div>
+      <div class="table-scroll"><table class="planner-table"><thead id="expHead"></thead><tbody id="expBody"></tbody></table></div>
+      <p class="data-note">Northern Lands는 이 대화에서 Discord Dungeon Bot 3.0 결과로 보정한 값이며, 이후 던전 값은 확인 전 참고용일 수 있습니다.</p>
+    </section>
+  </main>
+
+  <main class="planner-page planner-view" id="view-prices" hidden>
+    <section class="tool-hero"><span class="kicker accent">FARMING</span><h2>Gamepass & farming</h2><p>던전별 게임패스 가격과 시간별 파밍량 스냅샷입니다.</p></section>
+    <section class="card table-card">
+      <div class="table-toolbar"><div class="input-wrap search-wrap"><input id="priceSearch" type="search" placeholder="던전 검색"></div><span id="priceCount"></span></div>
+      <div class="table-scroll"><table class="planner-table"><thead id="priceHead"></thead><tbody id="priceBody"></tbody></table></div>
+      <p class="data-note">가격/파밍 데이터는 변동될 수 있으므로 최신 게임 상태와 차이가 날 수 있습니다.</p>
+    </section>
+  </main>
+
+  <main class="planner-page planner-view" id="view-about" hidden>
+    <section class="tool-hero"><span class="kicker accent">ABOUT</span><h2>DQR Toolkit integration</h2><p>기존 XP 계산기에 DQR Planner의 주요 도구를 재구현해 통합했습니다.</p></section>
+    <div class="tool-grid">
+      <section class="card tool-card">
+        <span class="kicker">LEVEL XP</span><h3>84 × 1.13^(level − 1)</h3>
+        <p class="data-note">레벨 요구 EXP 곡선. 현재 Runs 계산기와 Discord 봇 결과 검증에 사용합니다.</p>
+      </section>
+      <section class="card tool-card">
+        <span class="kicker">BOOSTS</span><h3>Additive multipliers</h3>
+        <p class="data-note">VIP +20%, Solo +10%, Hardcore +10%, EXP Boost +100%, 이벤트 배율은 기본 1.00x에 더합니다.</p>
+      </section>
+      <section class="card tool-card">
+        <span class="kicker">REFERENCE</span><h3>dqr-planner</h3>
+        <p class="data-note">기능과 데이터 구조는 Suzuki1130/dqr-planner를 참고해 이 사이트 디자인과 코드 구조에 맞게 다시 구현했습니다. 외부 방문자 추적 코드는 포함하지 않았습니다.</p>
+        <a class="repo-link" href="https://github.com/Suzuki1130/dqr-planner" target="_blank" rel="noopener">원본 참고 저장소 열기</a>
+      </section>
+      <section class="card tool-card">
+        <span class="kicker">LOCAL</span><h3>Browser only</h3>
+        <p class="data-note">계산과 저장은 브라우저에서 처리됩니다. 별도 서버가 필요하지 않습니다.</p>
+      </section>
+    </div>
+  </main>
+
   <footer>
     <span>Unofficial Dungeon Quest Reborn calculator</span>
     <span>·</span>
@@ -193,5 +338,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite">링크가 복사되었습니다.</div>
 
   <script src="script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="planner.js"></script>
 </body>
 </html>

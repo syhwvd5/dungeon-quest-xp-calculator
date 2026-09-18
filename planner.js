@@ -282,8 +282,8 @@
     ctx.putImageData(img,0,0);
     return canvas;
   }
-  $p("potScanFile")?.addEventListener("change", async e => {
-    const file=e.target.files?.[0]; if(!file)return;
+  async function processPotScanFile(file){
+    if(!file)return;
     const status=$p("potScanStatus");
     if(!window.Tesseract){status.textContent="OCR 라이브러리를 불러오지 못했습니다.";return}
     status.textContent="아이템 제목을 읽는 중…";
@@ -353,6 +353,26 @@
       console.error("DQR OCR error",err);
       status.textContent="OCR 처리 중 오류가 발생했습니다. 이미지를 다시 선택하거나 직접 입력하세요.";
     }
+  }
+
+  $p("potScanFile")?.addEventListener("change", e => {
+    const file=e.target.files?.[0];
+    if(file) processPotScanFile(file);
+  });
+
+  // Ctrl+V / Cmd+V image paste support while the Pots tool is open.
+  document.addEventListener("paste", e => {
+    const potsView=$p("view-pots");
+    if(!potsView || potsView.hidden || !potsView.classList.contains("active")) return;
+    const items=[...(e.clipboardData?.items||[])];
+    const imageItem=items.find(item=>item.type?.startsWith("image/"));
+    if(!imageItem) return;
+    const file=imageItem.getAsFile();
+    if(!file) return;
+    e.preventDefault();
+    const status=$p("potScanStatus");
+    if(status) status.textContent="붙여넣은 이미지를 읽는 중…";
+    processPotScanFile(file);
   });
 
   // Damage calculator data

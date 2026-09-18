@@ -164,8 +164,9 @@
   calcPot();
 
   // Screenshot OCR
-  // DQR class-aware main-stat mapping:
-  // Warrior -> Physical Power, Mage -> Spell Power, Guardian -> Health.
+  // DQR card OCR is intentionally split into two passes:
+  // 1) the title band is enlarged + thresholded to detect Warrior/Mage/Guardian,
+  // 2) the full card is enlarged + grayscale/autocontrast for stat values.
   function parseCardAmount(raw){
     if(!raw) return NaN;
     const m=String(raw).trim().replaceAll(",","").match(/([0-9]+(?:\.[0-9]+)?)\s*([kKmMbBtT])?/);
@@ -173,52 +174,164 @@
     const mult={k:1e3,m:1e6,b:1e9,t:1e12}[(m[2]||"").toLowerCase()]||1;
     return Number(m[1])*mult;
   }
-  function readCardStat(text,labelPattern){
-    // Capture the first displayed value after the label. Values inside parentheses
-    // are the max/secondary display and are intentionally not used as current pot.
-    const rx=new RegExp(labelPattern+"\\s*[:\\-]?\\s*([0-9]+(?:\\.[0-9]+)?\\s*[kKmMbBtT]?)","i");
-    const m=text.match(rx);
-    return m ? { raw:m[1].replace(/\s+/g,""), value:parseCardAmount(m[1]) } : null;
+  function amountMatches(line){
+    const out=[];
+    const rx=/([0-9]+(?:\.[0-9]+)?)\s*([kKmMbBtT])?/g;
+    let m;
+    while((m=rx.exec(line))!==null){
+      const raw=(m[1]+(m[2]||"")).replace(/\s+/g,"");
+      const value=parseCardAmount(raw);
+      if(Number.isFinite(value)) out.push({raw,value,index:m.index});
+    }
+    return out;
+  }
+  function editDistance(a,b){
+    a=a.toLowerCase(); b=b.toLowerCase();
+    const d=Array.from({length:a.length+1},()=>Array(b.length+1).fill(0));
+    for(let i=0;i<=a.length;i++) d[i][0]=i;
+    for(let j=0;j<=b.length;j++) d[0][j]=j;
+    for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++){
+      d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+    }
+    return d[a.length][b.length];
+  }
+  function detectRole(text){
+    const clean=String(text||"").replace(/[^A-Za-z\s]/g," ");
+    const words=clean.split(/\s+/).filter(Boolean);
+    const roles=[
+      {role:"Warrior",key:"physical",label:"Physical Power",maxDist:2},
+      {role:"Mage",key:"spell",label:"Spell Power",maxDist:1},
+      {role:"Guardian",key:"health",label:"Health",maxDist:2}
+    ];
+    for(const r of roles) if(new RegExp("\\b"+r.role+"\\b","i").test(clean)) return r;
+    for(const w of words){
+      for(const r of roles){
+        if(Math.abs(w.length-r.role.length)<=2 && editDistance(w,r.role)<=r.maxDist) return r;
+      }
+    }
+    return null;
+  }
+  function extractRoleStat(text,key){
+    const lines=String(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean);
+    const keyword=key==="physical"?"physical":key==="spell"?"spell":"health";
+    const idx=lines.findIndex(x=>new RegExp(keyword,"i").test(x));
+    if(idx<0) return null;
+
+    const same=amountMatches(lines[idx]);
+    if(key!=="health"){
+      // Typical OCR: "Physical 3.84m" / "Spell 5.48m".
+      if(same.length) return same[0];
+      // Some cards become "Physical" then "power: 971 (1.01m)".
+      for(let j=idx+1;j<=Math.min(lines.length-1,idx+2);j++){
+        const a=amountMatches(lines[j]);
+        if(a.length) return a[0];
+      }
+      return null;
+    }
+
+    // Health is often split by OCR as:
+    // "144.66m" on the line immediately above, then "Health: (145.66m)".
+    // Prefer a non-parenthesized value on the Health line; otherwise the
+    // nearest value immediately above it. Parenthesized values are max pot.
+    if(same.length){
+      const firstParen=lines[idx].indexOf("(");
+      const usable=same.find(a=>firstParen<0 || a.index<firstParen);
+      if(usable) return usable;
+    }
+    for(let j=idx-1;j>=Math.max(0,idx-2);j--){
+      const a=amountMatches(lines[j]);
+      if(a.length) return a[a.length-1];
+    }
+    return same[0]||null;
+  }
+  async function loadImageSource(file){
+    if("createImageBitmap" in window) return await createImageBitmap(file);
+    return await new Promise((resolve,reject)=>{
+      const img=new Image();
+      const url=URL.createObjectURL(file);
+      img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};
+      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("image load failed"))};
+      img.src=url;
+    });
+  }
+  function makeOcrCanvas(source,{title=false}={}){
+    const sw=source.width||source.naturalWidth, sh=source.height||source.naturalHeight;
+    const cropH=title?Math.max(1,Math.round(sh*0.22)):sh;
+    const scale=title?4:3;
+    const canvas=document.createElement("canvas");
+    canvas.width=sw*scale;
+    canvas.height=cropH*scale;
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality="high";
+    ctx.drawImage(source,0,0,sw,cropH,0,0,canvas.width,canvas.height);
+    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const data=img.data;
+    let min=255,max=0;
+    for(let i=0;i<data.length;i+=4){
+      const g=Math.round(data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114);
+      data[i]=data[i+1]=data[i+2]=g;
+      if(g<min)min=g;if(g>max)max=g;
+    }
+    const range=Math.max(1,max-min);
+    for(let i=0;i<data.length;i+=4){
+      let g=Math.round((data[i]-min)*255/range);
+      if(title) g=g>120?255:0;
+      data[i]=data[i+1]=data[i+2]=g;
+    }
+    ctx.putImageData(img,0,0);
+    return canvas;
   }
   $p("potScanFile")?.addEventListener("change", async e => {
     const file=e.target.files?.[0]; if(!file)return;
     const status=$p("potScanStatus");
     if(!window.Tesseract){status.textContent="OCR 라이브러리를 불러오지 못했습니다.";return}
-    status.textContent="아이템 직업과 스탯을 읽는 중…";
+    status.textContent="아이템 제목을 읽는 중…";
     try{
-      const r=await Tesseract.recognize(file,"eng",{logger:m=>{if(m.status==="recognizing text")status.textContent="OCR "+Math.round((m.progress||0)*100)+"%";}});
-      const text=(r.data.text||"").replace(/\r/g,"");
-      const upgrades=text.match(/Upgrades?\s*[:\-]?\s*(\d+)\s*\/\s*(\d+)/i);
-      if(upgrades){$p("potDone").value=upgrades[1];$p("potTotal").value=upgrades[2]}
+      const source=await loadImageSource(file);
+      const titleCanvas=makeOcrCanvas(source,{title:true});
+      const cardCanvas=makeOcrCanvas(source,{title:false});
 
-      const stats={
-        physical:readCardStat(text,"Physical(?:\\s+power)?"),
-        spell:readCardStat(text,"Spell(?:\\s+Power)?"),
-        health:readCardStat(text,"Health")
-      };
+      const titleResult=await Tesseract.recognize(titleCanvas,"eng",{
+        logger:m=>{if(m.status==="recognizing text")status.textContent="제목 OCR "+Math.round((m.progress||0)*100)+"%";}
+      });
+      const titleText=(titleResult.data.text||"").replace(/\r/g," ").replace(/\n+/g," ").trim();
 
-      let role=null, statKey=null, statLabel=null;
-      if(/\bWarrior\b/i.test(text)){role="Warrior";statKey="physical";statLabel="Physical Power";}
-      else if(/\bMage\b/i.test(text)){role="Mage";statKey="spell";statLabel="Spell Power";}
-      else if(/\bGuardian\b/i.test(text)){role="Guardian";statKey="health";statLabel="Health";}
+      status.textContent="스탯을 읽는 중…";
+      const cardResult=await Tesseract.recognize(cardCanvas,"eng",{
+        logger:m=>{if(m.status==="recognizing text")status.textContent="스탯 OCR "+Math.round((m.progress||0)*100)+"%";}
+      });
+      const text=(cardResult.data.text||"").replace(/\r/g,"");
+      const roleInfo=detectRole(titleText)||detectRole(text);
 
-      const chosen=statKey ? stats[statKey] : null;
-      if(chosen && Number.isFinite(chosen.value)){
-        $p("potCurrent").value=Math.round(chosen.value);
-        calcPot();
-        const upText=upgrades ? ` · Upgrades ${upgrades[1]}/${upgrades[2]}` : "";
-        status.textContent=`${role} 감지 → ${statLabel} ${chosen.raw} 사용${upText}. 값이 맞는지 확인하세요.`;
-      }else if(role){
-        calcPot();
-        status.textContent=`${role}는 감지했지만 ${statLabel} 값을 읽지 못했습니다. 현재 Pot만 직접 입력하세요.`;
+      const upgrades=text.match(/Upgrades?\s*[:\-]?\s*([0O]\d*)\s*\/\s*(\d+)/i);
+      if(upgrades){
+        $p("potDone").value=upgrades[1].replace(/^O/i,"0");
+        $p("potTotal").value=upgrades[2];
+      }
+
+      if(roleInfo){
+        const chosen=extractRoleStat(text,roleInfo.key);
+        if(chosen&&Number.isFinite(chosen.value)){
+          $p("potCurrent").value=chosen.raw;
+          calcPot();
+          const upText=upgrades?` · Upgrades ${$p("potDone").value}/${$p("potTotal").value}`:"";
+          status.textContent=`${roleInfo.role} 감지 → ${roleInfo.label} ${chosen.raw} 사용${upText}. 값이 맞는지 확인하세요.`;
+        }else{
+          calcPot();
+          status.textContent=`${roleInfo.role}는 감지했지만 ${roleInfo.label} 숫자를 읽지 못했습니다. 현재 Pot만 직접 입력하세요.`;
+        }
       }else{
         calcPot();
+        const seen=titleText? `제목 OCR: "${titleText.slice(0,70)}"` : "제목 OCR 결과 없음";
         status.textContent=upgrades
-          ? `직업을 감지하지 못했습니다. Upgrades ${upgrades[1]}/${upgrades[2]}만 입력했습니다.`
-          : "Warrior / Mage / Guardian 또는 스탯 숫자를 감지하지 못했습니다. 직접 입력하세요.";
+          ? `직업 감지 실패 · ${seen} · Upgrades만 입력했습니다.`
+          : `직업 감지 실패 · ${seen}. 직접 입력하세요.`;
       }
+      if(source&&typeof source.close==="function") source.close();
     }catch(err){
-      status.textContent="OCR 실패. 직접 입력하세요.";
+      console.error("DQR OCR error",err);
+      status.textContent="OCR 처리 중 오류가 발생했습니다. 이미지를 다시 선택하거나 직접 입력하세요.";
     }
   });
 

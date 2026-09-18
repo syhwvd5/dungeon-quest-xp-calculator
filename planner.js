@@ -13,13 +13,21 @@
   const tabs = [...document.querySelectorAll(".planner-tab")];
   const views = [...document.querySelectorAll(".planner-view")];
   function showView(name) {
-    tabs.forEach(b => b.classList.toggle("active", b.dataset.view === name));
+    tabs.forEach(b => {
+      const on = b.dataset.view === name;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", String(on));
+    });
     views.forEach(v => {
       const on = v.id === "view-" + name;
       v.hidden = !on;
       v.classList.toggle("active", on);
+      // Do not rely only on the hidden attribute/CSS cache.
+      // Runs is a grid; every other tool page is a normal block.
+      v.style.display = on ? (v.id === "view-runs" ? "grid" : "block") : "none";
     });
     try { localStorage.setItem("dqr.activeTab.v1", name); } catch {}
+    window.scrollTo({ top: 0, behavior: "instant" });
   }
   tabs.forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
   let savedTab = "runs";

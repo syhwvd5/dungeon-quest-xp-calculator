@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0f0f10" />
   <meta name="description" content="Roblox Dungeon Quest Reborn 레벨업 필요 XP, 필요한 던전 횟수, 예상 시간을 계산합니다." />
   <title>Dungeon Quest Reborn XP Calculator</title>
-  <link rel="stylesheet" href="style.css?v=20260919-4">
+  <link rel="stylesheet" href="style.css?v=20260919-2">
   <style>
     /* Critical view switching: keeps exactly one tool page visible even if cached CSS is stale. */
     .planner-view { display: none !important; }
@@ -261,20 +261,6 @@
         <p class="data-note">작은 아이템 카드도 제목 영역과 스탯 영역을 따로 확대해 읽습니다. Warrior는 Physical, Mage는 Spell, Guardian은 Health를 자동 선택합니다.</p>
         <label class="upload-box" id="potScanDropZone" for="potScanFile" tabindex="0"><input id="potScanFile" type="file" accept="image/*" hidden><span>이미지 선택 또는 Ctrl+V 붙여넣기</span><small>클립보드 이미지 지원 · Warrior → Physical · Mage → Spell · Guardian → Health · 직업명 없으면 가장 큰 스탯 자동 선택</small></label>
         <div class="scan-status" id="potScanStatus"></div>
-        <div class="scan-review" id="potScanReview" hidden>
-          <div class="scan-review-head"><div><span class="kicker">OCR RESULT</span><strong id="potScanDetected">—</strong></div><span class="scan-warning" id="potScanWarning"></span></div>
-          <div class="scan-stat-grid">
-            <label class="scan-stat-row"><input type="radio" name="potScanStat" value="physical"><span>Physical</span><input id="potScanPhysical" type="text" inputmode="text" placeholder="인식 안 됨"></label>
-            <label class="scan-stat-row"><input type="radio" name="potScanStat" value="spell"><span>Spell</span><input id="potScanSpell" type="text" inputmode="text" placeholder="인식 안 됨"></label>
-            <label class="scan-stat-row"><input type="radio" name="potScanStat" value="health"><span>Health</span><input id="potScanHealth" type="text" inputmode="text" placeholder="인식 안 됨"></label>
-          </div>
-          <div class="field-grid two scan-upgrade-grid">
-            <label class="field"><span class="field-name">이미 업그레이드</span><div class="input-wrap"><input id="potScanDone" type="number" min="0" placeholder="인식 안 됨"></div></label>
-            <label class="field"><span class="field-name">총 업그레이드</span><div class="input-wrap"><input id="potScanTotal" type="number" min="0" placeholder="인식 안 됨"></div></label>
-          </div>
-          <div class="scan-actions"><button class="button" id="potScanApply" type="button">검토한 값 적용</button><button class="button ghost" id="potScanClear" type="button">OCR 결과 지우기</button></div>
-          <p class="data-note">OCR 값은 바로 계산기에 덮어쓰지 않습니다. 숫자와 선택된 스탯을 확인한 뒤 적용하세요.</p>
-        </div>
       </section>
     </div>
   </main>
@@ -359,6 +345,6 @@
 
   <script src="script.js?v=20260919-2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="planner.js?v=20260919-13"></script>
+  <script src="planner.js?v=20260919-10"></script>
 </body>
 </html>

@@ -304,27 +304,50 @@
   }
   function parseUpgradePair(text){
     const clean=String(text||"").replace(/\r/g,"");
-    const normalize=s=>String(s||"").replace(/[O,]/gi,x=>x.toUpperCase()==="O"?"0":"");
+    const normalize=s=>String(s||"")
+      .replace(/[Oo]/g,"0")
+      .replace(/[Il]/g,"1")
+      .replace(/[,\s]/g,"")
+      .replace(/[^0-9]/g,"");
     const valid=(done,total)=>{
       if(!/^\d+$/.test(done)||!/^\d+$/.test(total)) return null;
-      const d=Number(done), t=Number(total);
+      const d=Number(done),t=Number(total);
       if(!Number.isFinite(d)||!Number.isFinite(t)||d<0||t<0||d>t) return null;
       return {done:String(Math.trunc(d)),total:String(Math.trunc(t))};
     };
 
-    // First try a label-aware match. OCR often inserts line breaks/spaces.
-    let m=clean.match(/Upg[a-z0-9]*\s*[:\-]?\s*([0-9O,]+)\s*[\/|]\\?\s*([0-9O,]+)/i);
+    let m=clean.match(/Upg[a-z0-9]*[\s:;._\-]{0,20}([0-9OoIl,]{1,14})\s*[\/|\\]\s*([0-9OoIl,]{1,14})/i);
     if(m){
       const hit=valid(normalize(m[1]),normalize(m[2]));
       if(hit) return hit;
     }
 
-    // Fallback: item cards normally contain only one current/total fraction.
-    // This recovers cases where "Upgrades" itself was OCR'd incorrectly.
-    const pairs=[...clean.matchAll(/([0-9O,]{1,12})\s*[\/|]\\?\s*([0-9O,]{1,12})/gi)];
-    for(const p of pairs){
-      const hit=valid(normalize(p[1]),normalize(p[2]));
+    m=clean.match(/Upg[a-z0-9]*[\s:;._\-]{0,20}([0-9OoIl,]{2,14})\s+([0-9OoIl,]{2,14})/i);
+    if(m){
+      const hit=valid(normalize(m[1]),normalize(m[2]));
       if(hit) return hit;
+    }
+
+    const fractions=[...clean.matchAll(/([0-9OoIl,]{1,14})\s*[\/|\\]\s*([0-9OoIl,]{1,14})/gi)];
+    for(const f of fractions){
+      const hit=valid(normalize(f[1]),normalize(f[2]));
+      if(hit) return hit;
+    }
+
+    const lines=clean.split(/\n+/).filter(line=>/upg/i.test(line));
+    for(const line of lines){
+      const nums=[...line.matchAll(/[0-9OoIl,]{3,14}/g)]
+        .map(x=>normalize(x[0])).filter(x=>/^\d{3,14}$/.test(x));
+      for(let i=0;i<nums.length;i++) for(let j=i+1;j<nums.length;j++){
+        if(nums[i]===nums[j]){
+          const hit=valid(nums[i],nums[j]);
+          if(hit) return hit;
+        }
+      }
+      for(let i=0;i<nums.length-1;i++){
+        const hit=valid(nums[i],nums[i+1]);
+        if(hit) return hit;
+      }
     }
     return null;
   }
@@ -334,9 +357,10 @@
     if(a.done===b.done&&a.total===b.total) return a;
     return (Number(confB)||0)>(Number(confA)||0)?b:a;
   }
-  function makeUpgradeCanvas(source){
+  function makeUpgradeCanvas(source,{top=.54,bottom=.90,threshold=false}={}){
     const sw=source.width||source.naturalWidth,sh=source.height||source.naturalHeight;
-    const sy=Math.floor(sh*0.52),cropH=Math.max(1,Math.floor(sh*0.43)),scale=5;
+    const sy=Math.floor(sh*top),ey=Math.min(sh,Math.ceil(sh*bottom));
+    const cropH=Math.max(1,ey-sy),scale=5;
     const canvas=document.createElement("canvas");
     canvas.width=sw*scale;canvas.height=cropH*scale;
     const ctx=canvas.getContext("2d",{willReadFrequently:true});
@@ -350,7 +374,8 @@
     }
     const range=Math.max(1,max-min);
     for(let i=0;i<data.length;i+=4){
-      const g=Math.round((data[i]-min)*255/range);
+      let g=Math.round((data[i]-min)*255/range);
+      if(threshold) g=g>145?255:0;
       data[i]=data[i+1]=data[i+2]=g;
     }
     ctx.putImageData(img,0,0);
@@ -437,14 +462,33 @@
       const grayUp=parseUpgradePair(grayText),colorUp=parseUpgradePair(colorText);
       if(!upgrades || !grayUp || !colorUp || grayUp.done!==colorUp.done || grayUp.total!==colorUp.total){
         status.textContent="업그레이드 수를 다시 확인하는 중…";
-        const upResult=await Tesseract.recognize(makeUpgradeCanvas(source),"eng",{
-          logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 OCR "+Math.round((m.progress||0)*100)+"%";}
-        });
-        const dedicated=parseUpgradePair((upResult.data.text||"").replace(/\r/g,""));
-        if(dedicated){
-          if(!upgrades) upgrades=dedicated;
-          else if(upgrades.done!==dedicated.done||upgrades.total!==dedicated.total) warnings.push("Upgrades 값 불일치");
-        }else if(!upgrades){
+
+        const upResultA=await Tesseract.recognize(
+          makeUpgradeCanvas(source,{top:.50,bottom:.86,threshold:false}),"eng",{
+            logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 OCR 1차 "+Math.round((m.progress||0)*100)+"%";}
+          }
+        );
+        const upA=parseUpgradePair((upResultA.data.text||"").replace(/\r/g,""));
+
+        const upResultB=await Tesseract.recognize(
+          makeUpgradeCanvas(source,{top:.62,bottom:.92,threshold:true}),"eng",{
+            logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 OCR 2차 "+Math.round((m.progress||0)*100)+"%";}
+          }
+        );
+        const upB=parseUpgradePair((upResultB.data.text||"").replace(/\r/g,""));
+
+        const candidates=[grayUp,colorUp,upA,upB].filter(Boolean);
+        if(candidates.length){
+          const counts=new Map();
+          for(const c of candidates){
+            const k=c.done+"/"+c.total;
+            counts.set(k,(counts.get(k)||0)+1);
+          }
+          candidates.sort((a,b)=>(counts.get(b.done+"/"+b.total)||0)-(counts.get(a.done+"/"+a.total)||0));
+          const best=candidates[0];
+          if(upgrades&&(upgrades.done!==best.done||upgrades.total!==best.total)) warnings.push("Upgrades 값 불일치");
+          upgrades=best;
+        }else{
           warnings.push("Upgrades 미감지");
         }
       }

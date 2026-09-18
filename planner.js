@@ -322,11 +322,31 @@
           status.textContent=`${roleInfo.role}는 감지했지만 ${roleInfo.label} 숫자를 읽지 못했습니다. 현재 Pot만 직접 입력하세요.`;
         }
       }else{
-        calcPot();
-        const seen=titleText? `제목 OCR: "${titleText.slice(0,70)}"` : "제목 OCR 결과 없음";
-        status.textContent=upgrades
-          ? `직업 감지 실패 · ${seen} · Upgrades만 입력했습니다.`
-          : `직업 감지 실패 · ${seen}. 직접 입력하세요.`;
+        // Weapons often have no Warrior/Mage/Guardian word in the title.
+        // In that case, read all three current stats and choose the largest one.
+        const candidates=[
+          {key:"physical",label:"Physical Power",stat:extractRoleStat(text,"physical")},
+          {key:"spell",label:"Spell Power",stat:extractRoleStat(text,"spell")},
+          {key:"health",label:"Health",stat:extractRoleStat(text,"health")}
+        ].filter(x=>x.stat&&Number.isFinite(x.stat.value));
+
+        if(candidates.length){
+          candidates.sort((a,b)=>b.stat.value-a.stat.value);
+          const chosen=candidates[0];
+          $p("potCurrent").value=chosen.stat.raw;
+          calcPot();
+          const details=candidates
+            .map(x=>`${x.label} ${x.stat.raw}`)
+            .join(" · ");
+          const upText=upgrades?` · Upgrades ${$p("potDone").value}/${$p("potTotal").value}`:"";
+          status.textContent=`직업명 없음 → 가장 큰 현재 스탯 ${chosen.label} ${chosen.stat.raw} 사용 · ${details}${upText}. 값이 맞는지 확인하세요.`;
+        }else{
+          calcPot();
+          const seen=titleText? `제목 OCR: "${titleText.slice(0,70)}"` : "제목 OCR 결과 없음";
+          status.textContent=upgrades
+            ? `직업/스탯 감지 실패 · ${seen} · Upgrades만 입력했습니다.`
+            : `직업/스탯 감지 실패 · ${seen}. 직접 입력하세요.`;
+        }
       }
       if(source&&typeof source.close==="function") source.close();
     }catch(err){

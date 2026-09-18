@@ -254,7 +254,7 @@
       img.src=url;
     });
   }
-  function makeOcrCanvas(source,{title=false}={}){
+  function makeOcrCanvas(source,{title=false,grey=true}={}){
     const sw=source.width||source.naturalWidth, sh=source.height||source.naturalHeight;
     const cropH=title?Math.max(1,Math.round(sh*0.22)):sh;
     const scale=title?4:3;
@@ -265,22 +265,44 @@
     ctx.imageSmoothingEnabled=true;
     ctx.imageSmoothingQuality="high";
     ctx.drawImage(source,0,0,sw,cropH,0,0,canvas.width,canvas.height);
-    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
-    const data=img.data;
-    let min=255,max=0;
-    for(let i=0;i<data.length;i+=4){
-      const g=Math.round(data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114);
-      data[i]=data[i+1]=data[i+2]=g;
-      if(g<min)min=g;if(g>max)max=g;
+    if(grey||title){
+      const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const data=img.data;
+      let min=255,max=0;
+      for(let i=0;i<data.length;i+=4){
+        const g=Math.round(data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114);
+        data[i]=data[i+1]=data[i+2]=g;
+        if(g<min)min=g;if(g>max)max=g;
+      }
+      const range=Math.max(1,max-min);
+      for(let i=0;i<data.length;i+=4){
+        let g=Math.round((data[i]-min)*255/range);
+        if(title) g=g>120?255:0;
+        data[i]=data[i+1]=data[i+2]=g;
+      }
+      ctx.putImageData(img,0,0);
     }
-    const range=Math.max(1,max-min);
-    for(let i=0;i<data.length;i+=4){
-      let g=Math.round((data[i]-min)*255/range);
-      if(title) g=g>120?255:0;
-      data[i]=data[i+1]=data[i+2]=g;
-    }
-    ctx.putImageData(img,0,0);
     return canvas;
+  }
+
+  function chooseOcrStat(a,b,confA,confB){
+    if(!a) return b;
+    if(!b) return a;
+    if(a.value===b.value) return a;
+    return (Number(confB)||0)>(Number(confA)||0)?b:a;
+  }
+  function parseUpgradePair(text){
+    const m=String(text||"").match(/Upgrades?\s*[:\-]?\s*([0-9O,]+)\s*\/\s*([0-9O,]+)/i);
+    if(!m) return null;
+    const done=m[1].replace(/[O,]/gi,x=>x.toUpperCase()==="O"?"0":"");
+    const total=m[2].replace(/[O,]/gi,x=>x.toUpperCase()==="O"?"0":"");
+    return /^\d+$/.test(done)&&/^\d+$/.test(total)?{done,total}:null;
+  }
+  function chooseUpgradePair(a,b,confA,confB){
+    if(!a) return b;
+    if(!b) return a;
+    if(a.done===b.done&&a.total===b.total) return a;
+    return (Number(confB)||0)>(Number(confA)||0)?b:a;
   }
   async function processPotScanFile(file){
     if(!file)return;
@@ -290,7 +312,8 @@
     try{
       const source=await loadImageSource(file);
       const titleCanvas=makeOcrCanvas(source,{title:true});
-      const cardCanvas=makeOcrCanvas(source,{title:false});
+      const cardGray=makeOcrCanvas(source,{title:false,grey:true});
+      const cardColor=makeOcrCanvas(source,{title:false,grey:false});
 
       const titleResult=await Tesseract.recognize(titleCanvas,"eng",{
         logger:m=>{if(m.status==="recognizing text")status.textContent="제목 OCR "+Math.round((m.progress||0)*100)+"%";}
@@ -298,20 +321,37 @@
       const titleText=(titleResult.data.text||"").replace(/\r/g," ").replace(/\n+/g," ").trim();
 
       status.textContent="스탯을 읽는 중…";
-      const cardResult=await Tesseract.recognize(cardCanvas,"eng",{
+      const grayResult=await Tesseract.recognize(cardGray,"eng",{
         logger:m=>{if(m.status==="recognizing text")status.textContent="스탯 OCR "+Math.round((m.progress||0)*100)+"%";}
       });
-      const text=(cardResult.data.text||"").replace(/\r/g,"");
-      const roleInfo=detectRole(titleText)||detectRole(text);
+      const grayText=(grayResult.data.text||"").replace(/\r/g,"");
 
-      const upgrades=text.match(/Upgrades?\s*[:\-]?\s*([0-9O]+)\s*\/\s*([0-9O]+)/i);
+      status.textContent="숫자를 다시 확인하는 중…";
+      const colorResult=await Tesseract.recognize(cardColor,"eng",{
+        logger:m=>{if(m.status==="recognizing text")status.textContent="숫자 재검사 "+Math.round((m.progress||0)*100)+"%";}
+      });
+      const colorText=(colorResult.data.text||"").replace(/\r/g,"");
+
+      const confGray=Number(grayResult.data.confidence)||0;
+      const confColor=Number(colorResult.data.confidence)||0;
+      const roleInfo=detectRole(titleText)||detectRole(grayText)||detectRole(colorText);
+
+      const upgrades=chooseUpgradePair(
+        parseUpgradePair(grayText),
+        parseUpgradePair(colorText),
+        confGray,confColor
+      );
       if(upgrades){
-        $p("potDone").value=upgrades[1].replace(/O/gi,"0");
-        $p("potTotal").value=upgrades[2].replace(/O/gi,"0");
+        $p("potDone").value=upgrades.done;
+        $p("potTotal").value=upgrades.total;
       }
 
       if(roleInfo){
-        const chosen=extractRoleStat(text,roleInfo.key);
+        const chosen=chooseOcrStat(
+          extractRoleStat(grayText,roleInfo.key),
+          extractRoleStat(colorText,roleInfo.key),
+          confGray,confColor
+        );
         if(chosen&&Number.isFinite(chosen.value)){
           $p("potCurrent").value=chosen.raw;
           calcPot();
@@ -325,9 +365,9 @@
         // Weapons often have no Warrior/Mage/Guardian word in the title.
         // In that case, read all three current stats and choose the largest one.
         const candidates=[
-          {key:"physical",label:"Physical Power",stat:extractRoleStat(text,"physical")},
-          {key:"spell",label:"Spell Power",stat:extractRoleStat(text,"spell")},
-          {key:"health",label:"Health",stat:extractRoleStat(text,"health")}
+          {key:"physical",label:"Physical Power",stat:chooseOcrStat(extractRoleStat(grayText,"physical"),extractRoleStat(colorText,"physical"),confGray,confColor)},
+          {key:"spell",label:"Spell Power",stat:chooseOcrStat(extractRoleStat(grayText,"spell"),extractRoleStat(colorText,"spell"),confGray,confColor)},
+          {key:"health",label:"Health",stat:chooseOcrStat(extractRoleStat(grayText,"health"),extractRoleStat(colorText,"health"),confGray,confColor)}
         ].filter(x=>x.stat&&Number.isFinite(x.stat.value));
 
         if(candidates.length){

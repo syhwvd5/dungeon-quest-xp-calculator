@@ -304,10 +304,10 @@
       const text=(cardResult.data.text||"").replace(/\r/g,"");
       const roleInfo=detectRole(titleText)||detectRole(text);
 
-      const upgrades=text.match(/Upgrades?\s*[:\-]?\s*([0O]\d*)\s*\/\s*(\d+)/i);
+      const upgrades=text.match(/Upgrades?\s*[:\-]?\s*([0-9O]+)\s*\/\s*([0-9O]+)/i);
       if(upgrades){
-        $p("potDone").value=upgrades[1].replace(/^O/i,"0");
-        $p("potTotal").value=upgrades[2];
+        $p("potDone").value=upgrades[1].replace(/O/gi,"0");
+        $p("potTotal").value=upgrades[2].replace(/O/gi,"0");
       }
 
       if(roleInfo){

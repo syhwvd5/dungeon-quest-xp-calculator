@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0f0f10" />
   <meta name="description" content="Roblox Dungeon Quest Reborn 레벨업 필요 XP, 필요한 던전 횟수, 예상 시간을 계산합니다." />
   <title>Dungeon Quest Reborn XP Calculator</title>
-  <link rel="stylesheet" href="style.css?v=20260919-2">
+  <link rel="stylesheet" href="style.css?v=20260919-5">
   <style>
     /* Critical view switching: keeps exactly one tool page visible even if cached CSS is stale. */
     .planner-view { display: none !important; }
@@ -261,6 +261,16 @@
         <p class="data-note">작은 아이템 카드도 제목 영역과 스탯 영역을 따로 확대해 읽습니다. Warrior는 Physical, Mage는 Spell, Guardian은 Health를 자동 선택합니다.</p>
         <label class="upload-box" id="potScanDropZone" for="potScanFile" tabindex="0"><input id="potScanFile" type="file" accept="image/*" hidden><span>이미지 선택 또는 Ctrl+V 붙여넣기</span><small>클립보드 이미지 지원 · Warrior → Physical · Mage → Spell · Guardian → Health · 직업명 없으면 가장 큰 스탯 자동 선택</small></label>
         <div class="scan-status" id="potScanStatus"></div>
+        <div class="pot-stat-review" id="potStatReview" hidden>
+          <div class="pot-stat-review-head"><div><span class="kicker">CURRENT POT REVIEW</span><strong id="potStatReviewTitle">인식값 확인</strong></div><span id="potStatReviewHint"></span></div>
+          <div class="pot-stat-review-grid">
+            <label><input type="radio" name="potReviewStat" value="physical"><span>Physical</span><input id="potReviewPhysical" type="text" inputmode="text" placeholder="인식 안 됨"></label>
+            <label><input type="radio" name="potReviewStat" value="spell"><span>Spell</span><input id="potReviewSpell" type="text" inputmode="text" placeholder="인식 안 됨"></label>
+            <label><input type="radio" name="potReviewStat" value="health"><span>Health</span><input id="potReviewHealth" type="text" inputmode="text" placeholder="인식 안 됨"></label>
+          </div>
+          <div class="pot-stat-review-actions"><button class="button" id="potReviewApply" type="button">현재 Pot에 적용</button><button class="button ghost" id="potReviewClear" type="button">지우기</button></div>
+          <p class="data-note">OCR이 틀리면 숫자를 직접 고친 뒤 적용하세요. Upgrades는 기존 방식대로 자동 입력됩니다.</p>
+        </div>
       </section>
     </div>
   </main>
@@ -345,6 +355,6 @@
 
   <script src="script.js?v=20260919-2"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="planner.js?v=20260919-10"></script>
+  <script src="planner.js?v=20260919-14"></script>
 </body>
 </html>

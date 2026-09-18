@@ -256,7 +256,7 @@
   }
   function makeOcrCanvas(source,{title=false,grey=true}={}){
     const sw=source.width||source.naturalWidth, sh=source.height||source.naturalHeight;
-    const cropH=title?Math.max(1,Math.round(sh*0.40)):sh;
+    const cropH=title?Math.max(1,Math.round(sh*0.22)):sh;
     const scale=title?4:3;
     const canvas=document.createElement("canvas");
     canvas.width=sw*scale;
@@ -286,68 +286,34 @@
   }
 
   function chooseOcrStat(a,b,confA,confB){
-    if(!a) return {stat:b||null,conflict:false};
-    if(!b) return {stat:a,conflict:false};
-    if(a.value===b.value) return {stat:a,conflict:false};
-    const digits=x=>x&&!/[kKmMbBtT]/.test(x.raw)?String(x.raw).replace(/\D/g,""):null;
-    const da=digits(a),db=digits(b);
-    const oneInsertion=(x,y)=>{
-      if(!x||!y||Math.abs(x.length-y.length)!==1)return false;
-      const longer=x.length>y.length?x:y,shorter=x.length>y.length?y:x;
-      for(let i=0;i<longer.length;i++)if(longer.slice(0,i)+longer.slice(i+1)===shorter)return true;
-      return false;
-    };
-    if(oneInsertion(da,db)){
-      return {stat:da.length<db.length?a:b,conflict:true};
-    }
-    return {stat:(Number(confB)||0)>(Number(confA)||0)?b:a,conflict:true};
+    if(!a) return b;
+    if(!b) return a;
+    if(a.value===b.value) return a;
+    return (Number(confB)||0)>(Number(confA)||0)?b:a;
   }
   function parseUpgradePair(text){
     const clean=String(text||"").replace(/\r/g,"");
-    const normalize=s=>String(s||"")
-      .replace(/[Oo]/g,"0")
-      .replace(/[Il]/g,"1")
-      .replace(/[,\s]/g,"")
-      .replace(/[^0-9]/g,"");
+    const normalize=s=>String(s||"").replace(/[O,]/gi,x=>x.toUpperCase()==="O"?"0":"");
     const valid=(done,total)=>{
       if(!/^\d+$/.test(done)||!/^\d+$/.test(total)) return null;
-      const d=Number(done),t=Number(total);
+      const d=Number(done), t=Number(total);
       if(!Number.isFinite(d)||!Number.isFinite(t)||d<0||t<0||d>t) return null;
       return {done:String(Math.trunc(d)),total:String(Math.trunc(t))};
     };
 
-    let m=clean.match(/Upg[a-z0-9]*[\s:;._\-]{0,20}([0-9OoIl,]{1,14})\s*[\/|\\]\s*([0-9OoIl,]{1,14})/i);
+    // First try a label-aware match. OCR often inserts line breaks/spaces.
+    let m=clean.match(/Upg[a-z0-9]*\s*[:\-]?\s*([0-9O,]+)\s*[\/|]\\?\s*([0-9O,]+)/i);
     if(m){
       const hit=valid(normalize(m[1]),normalize(m[2]));
       if(hit) return hit;
     }
 
-    m=clean.match(/Upg[a-z0-9]*[\s:;._\-]{0,20}([0-9OoIl,]{2,14})\s+([0-9OoIl,]{2,14})/i);
-    if(m){
-      const hit=valid(normalize(m[1]),normalize(m[2]));
+    // Fallback: item cards normally contain only one current/total fraction.
+    // This recovers cases where "Upgrades" itself was OCR'd incorrectly.
+    const pairs=[...clean.matchAll(/([0-9O,]{1,12})\s*[\/|]\\?\s*([0-9O,]{1,12})/gi)];
+    for(const p of pairs){
+      const hit=valid(normalize(p[1]),normalize(p[2]));
       if(hit) return hit;
-    }
-
-    const fractions=[...clean.matchAll(/([0-9OoIl,]{1,14})\s*[\/|\\]\s*([0-9OoIl,]{1,14})/gi)];
-    for(const f of fractions){
-      const hit=valid(normalize(f[1]),normalize(f[2]));
-      if(hit) return hit;
-    }
-
-    const lines=clean.split(/\n+/).filter(line=>/upg/i.test(line));
-    for(const line of lines){
-      const nums=[...line.matchAll(/[0-9OoIl,]{3,14}/g)]
-        .map(x=>normalize(x[0])).filter(x=>/^\d{3,14}$/.test(x));
-      for(let i=0;i<nums.length;i++) for(let j=i+1;j<nums.length;j++){
-        if(nums[i]===nums[j]){
-          const hit=valid(nums[i],nums[j]);
-          if(hit) return hit;
-        }
-      }
-      for(let i=0;i<nums.length-1;i++){
-        const hit=valid(nums[i],nums[i+1]);
-        if(hit) return hit;
-      }
     }
     return null;
   }
@@ -357,64 +323,10 @@
     if(a.done===b.done&&a.total===b.total) return a;
     return (Number(confB)||0)>(Number(confA)||0)?b:a;
   }
-  function makeUpgradeCanvas(source,{top=.54,bottom=.90,left=0,right=1,threshold=false,scale=5}={}){
-    const sw=source.width||source.naturalWidth,sh=source.height||source.naturalHeight;
-    const sx=Math.floor(sw*left),ex=Math.min(sw,Math.ceil(sw*right));
-    const sy=Math.floor(sh*top),ey=Math.min(sh,Math.ceil(sh*bottom));
-    const cropW=Math.max(1,ex-sx),cropH=Math.max(1,ey-sy);
-    const canvas=document.createElement("canvas");
-    canvas.width=cropW*scale;canvas.height=cropH*scale;
-    const ctx=canvas.getContext("2d",{willReadFrequently:true});
-    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
-    ctx.drawImage(source,sx,sy,cropW,cropH,0,0,canvas.width,canvas.height);
-    const img=ctx.getImageData(0,0,canvas.width,canvas.height),data=img.data;
-    let min=255,max=0;
-    for(let i=0;i<data.length;i+=4){
-      const g=Math.round(data[i]*.299+data[i+1]*.587+data[i+2]*.114);
-      data[i]=data[i+1]=data[i+2]=g;if(g<min)min=g;if(g>max)max=g;
-    }
-    const range=Math.max(1,max-min);
-    for(let i=0;i<data.length;i+=4){
-      let g=Math.round((data[i]-min)*255/range);
-      if(threshold) g=g>145?255:0;
-      data[i]=data[i+1]=data[i+2]=g;
-    }
-    ctx.putImageData(img,0,0);
-    return canvas;
-  }
-  function scanInputFor(key){
-    return $p("potScan"+key[0].toUpperCase()+key.slice(1));
-  }
-  function showScanReview({roleInfo,stats,upgrades,selectedKey,warnings=[]}){
-    const review=$p("potScanReview");
-    if(!review)return;
-    review.hidden=false;
-    scanInputFor("physical").value=stats.physical?.raw||"";
-    scanInputFor("spell").value=stats.spell?.raw||"";
-    scanInputFor("health").value=stats.health?.raw||"";
-    $p("potScanDone").value=upgrades?.done??"";
-    $p("potScanTotal").value=upgrades?.total??"";
-    document.querySelectorAll('input[name="potScanStat"]').forEach(r=>r.checked=r.value===selectedKey);
-    $p("potScanDetected").textContent=roleInfo
-      ? roleInfo.role+" 감지 · "+roleInfo.label+" 선택"
-      : selectedKey
-        ? "직업명 없음 · 가장 큰 현재 스탯 자동 선택"
-        : "직업/주 스탯 미감지";
-    $p("potScanWarning").textContent=warnings.length?"확인 권장: "+warnings.join(", "):"";
-  }
-  function clearScanReview(){
-    const review=$p("potScanReview");
-    if(review)review.hidden=true;
-    ["physical","spell","health"].forEach(k=>{const el=scanInputFor(k);if(el)el.value=""});
-    if($p("potScanDone"))$p("potScanDone").value="";
-    if($p("potScanTotal"))$p("potScanTotal").value="";
-    if($p("potScanWarning"))$p("potScanWarning").textContent="";
-  }
   async function processPotScanFile(file){
     if(!file)return;
     const status=$p("potScanStatus");
     if(!window.Tesseract){status.textContent="OCR 라이브러리를 불러오지 못했습니다.";return}
-    clearScanReview();
     status.textContent="아이템 제목을 읽는 중…";
     try{
       const source=await loadImageSource(file);
@@ -443,92 +355,57 @@
       const confColor=Number(colorResult.data.confidence)||0;
       const roleInfo=detectRole(titleText)||detectRole(grayText)||detectRole(colorText);
 
-      let upgrades=chooseUpgradePair(
+      const upgrades=chooseUpgradePair(
         parseUpgradePair(grayText),
         parseUpgradePair(colorText),
         confGray,confColor
       );
-      const warnings=[];
-      const stats={};
-      for(const key of ["physical","spell","health"]){
-        const picked=chooseOcrStat(
-          extractRoleStat(grayText,key),
-          extractRoleStat(colorText,key),
+      if(upgrades){
+        $p("potDone").value=upgrades.done;
+        $p("potTotal").value=upgrades.total;
+      }
+
+      if(roleInfo){
+        const chosen=chooseOcrStat(
+          extractRoleStat(grayText,roleInfo.key),
+          extractRoleStat(colorText,roleInfo.key),
           confGray,confColor
         );
-        stats[key]=picked.stat;
-        if(picked.conflict)warnings.push(key+" 값 불일치");
-      }
-
-      const grayUp=parseUpgradePair(grayText),colorUp=parseUpgradePair(colorText);
-      const suspiciousUpgrade=upgrades&&upgrades.total.length-upgrades.done.length>=2;
-      if(!upgrades || !grayUp || !colorUp || grayUp.done!==colorUp.done || grayUp.total!==colorUp.total || suspiciousUpgrade){
-        status.textContent="업그레이드 수를 다시 확인하는 중…";
-
-        const upResultA=await Tesseract.recognize(
-          makeUpgradeCanvas(source,{top:.50,bottom:.88,left:0,right:1,threshold:false,scale:5}),"eng",{
-            logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 OCR 1차 "+Math.round((m.progress||0)*100)+"%";}
-          }
-        );
-        const upA=parseUpgradePair((upResultA.data.text||"").replace(/\r/g,""));
-
-        // The numeric pair sits on the right half of DQR item cards.
-        // Cropping away "Upgrades:" prevents the large blue label from stealing characters.
-        const upResultB=await Tesseract.recognize(
-          makeUpgradeCanvas(source,{top:.66,bottom:.88,left:.43,right:.995,threshold:false,scale:7}),"eng",{
-            logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 숫자 OCR 1차 "+Math.round((m.progress||0)*100)+"%";}
-          }
-        );
-        const upB=parseUpgradePair((upResultB.data.text||"").replace(/\r/g,""));
-
-        const upResultC=await Tesseract.recognize(
-          makeUpgradeCanvas(source,{top:.66,bottom:.88,left:.43,right:.995,threshold:true,scale:7}),"eng",{
-            logger:m=>{if(m.status==="recognizing text")status.textContent="업그레이드 숫자 OCR 2차 "+Math.round((m.progress||0)*100)+"%";}
-          }
-        );
-        const upC=parseUpgradePair((upResultC.data.text||"").replace(/\r/g,""));
-
-        let best=null;
-        if(upB&&upC&&upB.done===upC.done&&upB.total===upC.total){
-          best=upB;
+        if(chosen&&Number.isFinite(chosen.value)){
+          $p("potCurrent").value=chosen.raw;
+          calcPot();
+          const upText=upgrades?` · Upgrades ${$p("potDone").value}/${$p("potTotal").value}`:"";
+          status.textContent=`${roleInfo.role} 감지 → ${roleInfo.label} ${chosen.raw} 사용${upText}. 값이 맞는지 확인하세요.`;
         }else{
-          const candidates=[grayUp,colorUp,upA,upB,upC].filter(Boolean);
-          if(candidates.length){
-            const counts=new Map();
-            for(const c of candidates){
-              const k=c.done+"/"+c.total;
-              counts.set(k,(counts.get(k)||0)+1);
-            }
-            candidates.sort((a,b)=>(counts.get(b.done+"/"+b.total)||0)-(counts.get(a.done+"/"+a.total)||0));
-            best=candidates[0];
-          }
+          calcPot();
+          status.textContent=`${roleInfo.role}는 감지했지만 ${roleInfo.label} 숫자를 읽지 못했습니다. 현재 Pot만 직접 입력하세요.`;
         }
-
-        if(best){
-          if(upgrades&&(upgrades.done!==best.done||upgrades.total!==best.total)) warnings.push("Upgrades 값 재보정");
-          upgrades=best;
-        }else{
-          warnings.push("Upgrades 미감지");
-        }
-      }
-
-      let selectedKey=null;
-      if(roleInfo&&stats[roleInfo.key]) selectedKey=roleInfo.key;
-      else{
-        const candidates=Object.entries(stats).filter(([,v])=>v&&Number.isFinite(v.value));
-        if(candidates.length){
-          candidates.sort((a,b)=>b[1].value-a[1].value);
-          selectedKey=candidates[0][0];
-        }
-      }
-
-      if(!Object.values(stats).some(Boolean)&&!upgrades){
-        clearScanReview();
-        const seen=titleText? ` · 제목 OCR: "${titleText.slice(0,70)}"`:"";
-        status.textContent="직업/스탯/업그레이드 값을 읽지 못했습니다"+seen+".";
       }else{
-        showScanReview({roleInfo,stats,upgrades,selectedKey,warnings});
-        status.textContent="OCR 완료. 아래 인식값을 확인한 뒤 적용하세요.";
+        // Weapons often have no Warrior/Mage/Guardian word in the title.
+        // In that case, read all three current stats and choose the largest one.
+        const candidates=[
+          {key:"physical",label:"Physical Power",stat:chooseOcrStat(extractRoleStat(grayText,"physical"),extractRoleStat(colorText,"physical"),confGray,confColor)},
+          {key:"spell",label:"Spell Power",stat:chooseOcrStat(extractRoleStat(grayText,"spell"),extractRoleStat(colorText,"spell"),confGray,confColor)},
+          {key:"health",label:"Health",stat:chooseOcrStat(extractRoleStat(grayText,"health"),extractRoleStat(colorText,"health"),confGray,confColor)}
+        ].filter(x=>x.stat&&Number.isFinite(x.stat.value));
+
+        if(candidates.length){
+          candidates.sort((a,b)=>b.stat.value-a.stat.value);
+          const chosen=candidates[0];
+          $p("potCurrent").value=chosen.stat.raw;
+          calcPot();
+          const details=candidates
+            .map(x=>`${x.label} ${x.stat.raw}`)
+            .join(" · ");
+          const upText=upgrades?` · Upgrades ${$p("potDone").value}/${$p("potTotal").value}`:"";
+          status.textContent=`직업명 없음 → 가장 큰 현재 스탯 ${chosen.label} ${chosen.stat.raw} 사용 · ${details}${upText}. 값이 맞는지 확인하세요.`;
+        }else{
+          calcPot();
+          const seen=titleText? `제목 OCR: "${titleText.slice(0,70)}"` : "제목 OCR 결과 없음";
+          status.textContent=upgrades
+            ? `직업/스탯 감지 실패 · ${seen} · Upgrades만 입력했습니다.`
+            : `직업/스탯 감지 실패 · ${seen}. 직접 입력하세요.`;
+        }
       }
       if(source&&typeof source.close==="function") source.close();
     }catch(err){
@@ -555,31 +432,6 @@
     const status=$p("potScanStatus");
     if(status) status.textContent="붙여넣은 이미지를 읽는 중…";
     processPotScanFile(file);
-  });
-
-  $p("potScanApply")?.addEventListener("click",()=>{
-    const selected=document.querySelector('input[name="potScanStat"]:checked')?.value;
-    const statEl=selected?scanInputFor(selected):null;
-    const statVal=statEl?parseCardAmount(statEl.value):NaN;
-    const done=$p("potScanDone").value===""?NaN:Number($p("potScanDone").value);
-    const total=$p("potScanTotal").value===""?NaN:Number($p("potScanTotal").value);
-    if(!selected||!Number.isFinite(statVal)){
-      $p("potScanStatus").textContent="사용할 스탯과 숫자를 확인하세요.";
-      statEl?.focus();return;
-    }
-    if(Number.isFinite(done)&&Number.isFinite(total)&&done>total){
-      $p("potScanStatus").textContent="이미 업그레이드는 총 업그레이드보다 클 수 없습니다.";
-      $p("potScanDone").focus();return;
-    }
-    $p("potCurrent").value=statEl.value.trim();
-    if(Number.isFinite(done))$p("potDone").value=Math.max(0,Math.floor(done));
-    if(Number.isFinite(total))$p("potTotal").value=Math.max(0,Math.floor(total));
-    calcPot();
-    $p("potScanStatus").textContent="검토한 OCR 값을 계산기에 적용했습니다.";
-  });
-  $p("potScanClear")?.addEventListener("click",()=>{
-    clearScanReview();
-    $p("potScanStatus").textContent="OCR 결과를 지웠습니다.";
   });
 
   // Damage calculator data

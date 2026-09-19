@@ -191,7 +191,7 @@ select option { background: #19191b; color: #f0efec; }
 .breakdown-card { grid-column: 1 / -1; padding: 22px 24px 18px; }
 .breakdown-title { margin-bottom: 15px; }
 .formula-chip { color: #8b898d; background: #171719; border: 1px solid #303034; border-radius: 8px; padding: 7px 9px; font-size: 9px; font-weight: 780; }
-.table-head, .level-row { display: grid; grid-template-columns: 1.2fr 1fr .7fr; align-items: center; gap: 16px; }
+.table-head, .level-row { display: grid; grid-template-columns: 1.2fr 1fr .7fr .8fr; align-items: center; gap: 16px; }
 .table-head { padding: 0 12px 8px; color: #656469; font-size: 8px; font-weight: 860; letter-spacing: .1em; }
 .table-head span:nth-child(n+2), .level-row > span:nth-child(n+2) { text-align: right; }
 .level-list { border: 1px solid var(--line-soft); border-radius: 11px; overflow: hidden; }
@@ -240,7 +240,7 @@ footer { position: relative; z-index: 1; width: min(1180px, calc(100% - 32px)); 
   .stat { padding: 16px 14px; }
   .stat strong { font-size: 17px; }
   .breakdown-card { padding: 19px 14px 14px; overflow: hidden; }
-  .table-head, .level-row { grid-template-columns: 1fr .95fr .55fr; gap: 8px; }
+  .table-head, .level-row { grid-template-columns: 1fr .9fr .55fr .72fr; gap: 7px; }
   .level-line { display: none; }
   .level-badge { min-width: 0; }
   .result-number { font-size: 68px; }
